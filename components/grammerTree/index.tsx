@@ -1,18 +1,19 @@
 "use client";
 
 import {
-  useCallback,
+  // useCallback,
   useLayoutEffect,
-  useRef,
 } from "react";
 import ReactFlow, {
   Controls,
   Background,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  type Connection,
+  // useNodesState,
+  // useEdgesState,
+  // addEdge,
+  // type Connection,
   type Edge,
+  OnNodesChange,
+  OnEdgesChange,
 } from "reactflow";
 import dagre from "dagre";
 import "reactflow/dist/style.css";
@@ -75,32 +76,40 @@ const nodeTypes = {
 };
 
 interface SyntaxTreeProps {
-  initialNodes: GrammarNode[];
-  initialEdges: Edge[];
+  nodes: GrammarNode[];
+  edges: Edge[];
+  setNodes: (nodes: GrammarNode[]) => void;
+  setEdges: (edges: Edge[]) => void;
+  onNodesChange: OnNodesChange;
+  onEdgesChange: OnEdgesChange;
+  layoutApplied: boolean;
+  setLayoutApplied: (layoutApplied: boolean) => void;
 }
 
 export default function GrammerSyntaxTree({
-  initialNodes,
-  initialEdges,
+  nodes,
+  edges,
+  setNodes,
+  setEdges,
+  onNodesChange,
+  onEdgesChange,
+  layoutApplied,
+  setLayoutApplied,
 }: SyntaxTreeProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const isLayoutApplied = useRef(false);
-
-  const onConnect = useCallback(
-    (params: Edge | Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
-  );
+  // const onConnect = useCallback(
+  //   (params: Edge | Connection) => setEdges((eds) => addEdge(params, eds)),
+  //   [setEdges]
+  // );
 
   useLayoutEffect(() => {
-    if (!isLayoutApplied.current) {
+    if (!layoutApplied) {
       const { nodes: layoutedNodes, edges: layoutedEdges } =
         getLayoutedElements(nodes as Exclude<GrammarNode[], undefined>, edges);
       setNodes([...layoutedNodes]);
       setEdges([...layoutedEdges]);
-      isLayoutApplied.current = true;
+      setLayoutApplied(true);
     }
-  }, [nodes, edges, setNodes, setEdges]);
+  }, [nodes, edges, setNodes, setEdges, layoutApplied, setLayoutApplied]);
 
   // useEffect(() => {
   //   if (collapsed) {
@@ -128,16 +137,13 @@ export default function GrammerSyntaxTree({
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
-      onConnect={onConnect}
+      // onConnect={onConnect}
       nodeTypes={nodeTypes}
       minZoom={0.5}
       maxZoom={1.5}
       attributionPosition="bottom-left"
     >
-      <Controls
-        position="top-right"
-        showInteractive={false}
-      >
+      <Controls position="top-right" showInteractive={false}>
         {/* <ControlButton onClick={() => setCollapsed((prev) => !prev)}>
           <CaseSensitive />
         </ControlButton> */}
