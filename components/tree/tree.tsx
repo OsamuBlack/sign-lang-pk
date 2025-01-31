@@ -2,10 +2,8 @@
 
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
-  useState,
 } from "react";
 import ReactFlow, {
   Controls,
@@ -15,13 +13,11 @@ import ReactFlow, {
   addEdge,
   type Connection,
   type Edge,
-  ControlButton,
 } from "reactflow";
 import dagre from "dagre";
 import "reactflow/dist/style.css";
 import { CustomNode } from "./node";
 import type { GrammarNode } from "./type";
-import { CaseSensitive } from "lucide-react";
 
 // Dagre graph configuration
 const dagreGraph = new dagre.graphlib.Graph();
@@ -89,7 +85,6 @@ export default function GrammerSyntaxTree({
 }: SyntaxTreeProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [collapsed, setCollapsed] = useState(false);
   const isLayoutApplied = useRef(false);
 
   const onConnect = useCallback(
