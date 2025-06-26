@@ -8,16 +8,18 @@ import { notFound } from "next/navigation";
 export default async function CategoryPage({
   params,
 }: {
-  params: { categoryId: string };
+  params: Promise<{ categoryId: string }>;
 }) {
-  const catId = Number(params.categoryId);
+  const paramsResolved = await params;
+  const catLabel = paramsResolved.categoryId;
+  // Find category by label (assuming name is unique)
   const cats = await db.select().from(categories);
-  const selectedCat = cats.find((c) => c.id === catId);
+  const selectedCat = cats.find((c) => c.name === catLabel);
   if (!selectedCat) return notFound();
   const wordList = await db
     .select()
     .from(words)
-    .where(eq(words.categoryId, catId));
+    .where(eq(words.categoryId, selectedCat.id));
 
   // Get next/recommended words (other words in the same category, excluding the current one)
   const recommended = wordList.slice(0, 6); // Show up to 6 recommendations
@@ -36,7 +38,7 @@ export default async function CategoryPage({
               className="p-5 flex flex-col gap-2 border shadow-md hover:shadow-lg transition-shadow text-center"
             >
               <Link
-                href={`/dictionary/word/${word.id}`}
+                href={`/dictionary/word/${word.word}`}
                 className="text-xl font-semibold text-primary hover:underline"
               >
                 {word.word.toUpperCase()}
@@ -66,7 +68,7 @@ export default async function CategoryPage({
             {recommended.map((word) => (
               <Link
                 key={word.id}
-                href={`/dictionary/word/${word.id}`}
+                href={`/dictionary/word/${word.word}`}
                 className="bg-muted rounded-lg px-4 py-2 shadow hover:bg-accent transition-colors text-primary font-medium"
               >
                 {word.word.toUpperCase()}
@@ -77,4 +79,26 @@ export default async function CategoryPage({
       )}
     </div>
   );
+}
+
+export const generateMetadata = async ({
+  params,
+}: {
+  params: Promise<{ categoryId: string }>;
+}) => {
+  const paramsResolved = await params;
+  const catLabel = paramsResolved.categoryId;
+  const cats = await db.select().from(categories);
+  const selectedCat = cats.find((c) => c.name === catLabel);
+  if (!selectedCat) return notFound();
+
+  return {
+    title: `${selectedCat.name.charAt(0).toUpperCase() + selectedCat.name.slice(1)} Words`,
+  };
+};
+
+export async function generateStaticParams() {
+  // Fetch all category labels for static generation
+  const allCategories = await db.select().from(categories);
+  return allCategories.map((cat) => ({ categoryId: cat.name }));
 }

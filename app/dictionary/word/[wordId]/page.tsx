@@ -7,15 +7,17 @@ import Link from "next/link";
 export default async function WordPage({
   params,
 }: {
-  params: { wordId: string };
+  params: Promise<{ wordId: string }>;
 }) {
-  const wordId = Number(params.wordId);
-  const word = (await db.select().from(words).where(eq(words.id, wordId)))[0];
+  const paramsResolved = await params;
+  const wordLabel = paramsResolved.wordId;
+  // Find word by label (assuming label is unique, e.g., slug or word)
+  const word = (await db.select().from(words).where(eq(words.word, wordLabel)))[0];
   if (!word) return notFound();
 
   // Get video URL via wordVideos join
   const wordVideo = (
-    await db.select().from(wordVideos).where(eq(wordVideos.wordId, wordId))
+    await db.select().from(wordVideos).where(eq(wordVideos.wordId, word.id))
   )[0];
   let videoUrl: string | null = null;
   if (wordVideo && wordVideo.videoId != null) {
@@ -36,7 +38,7 @@ export default async function WordPage({
           .from(words)
           .where(eq(words.categoryId, word.categoryId))
       )
-        .filter((w) => w.id !== wordId)
+        .filter((w) => w.word !== wordLabel)
         .slice(0, 6)
     : [];
 
@@ -60,7 +62,7 @@ export default async function WordPage({
             {recommended.map((w) => (
               <Link
                 key={w.id}
-                href={`/dictionary/word/${w.id}`}
+                href={`/dictionary/word/${w.word}`}
                 className="bg-muted rounded-lg px-4 py-2 shadow hover:bg-accent transition-colors text-primary font-medium"
               >
                 {w.word.toUpperCase()}
@@ -72,3 +74,9 @@ export default async function WordPage({
     </div>
   );
 }
+
+// export async function generateStaticParams() {
+//   // Fetch all word labels for static generation
+//   const allWords = await db.select().from(words);
+//   return allWords.map((w) => ({ wordId: w.word }));
+// }

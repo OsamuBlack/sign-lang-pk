@@ -6,7 +6,7 @@ import React from "react";
 
 export default async function DictionaryLayout({ children }: { children: React.ReactNode }) {
   const cats = await db.select().from(categories);
-  const items = cats.map((cat) => ({ id: cat.id, name: cat.name, href: `/dictionary/${cat.id}` }));
+  const items = cats.map((cat) => ({ id: cat.id, name: cat.name, href: `/dictionary/${cat.name}` }));
 
   // Try to extract selectedId from the current path
   let selectedId: number | undefined = undefined;

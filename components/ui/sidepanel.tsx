@@ -1,15 +1,16 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
-import { cn } from "@/lib/utils"
-import Link from "next/link"
-import { Card, CardContent, CardHeader } from "./card"
+import { useState, useMemo } from "react";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { Card, CardContent, CardHeader } from "./card";
+import { ChevronDown, X } from "lucide-react";
 
 interface SidePanelProps {
-  title?: string
-  items: { id: number; name: string; href: string }[]
-  selectedId?: number
-  className?: string
+  title?: string;
+  items: { id: number; name: string; href: string }[];
+  selectedId?: number;
+  className?: string;
 }
 
 export function SidePanel({
@@ -18,8 +19,8 @@ export function SidePanel({
   selectedId,
   className,
 }: SidePanelProps) {
-  const [search, setSearch] = useState("")
-  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
 
   const filteredItems = useMemo(
     () =>
@@ -27,7 +28,7 @@ export function SidePanel({
         item.name.toLowerCase().includes(search.trim().toLowerCase())
       ),
     [items, search]
-  )
+  );
 
   // Mobile: show only selected, popup for all
   return (
@@ -38,7 +39,9 @@ export function SidePanel({
           onClick={() => setOpen(true)}
         >
           {items.find((i) => i.id === selectedId)?.name || title}
-          <span className="ml-2">▼</span>
+          <span className="ml-2">
+            <ChevronDown size="16" />
+          </span>
         </button>
         {open && (
           <div
@@ -51,11 +54,8 @@ export function SidePanel({
             >
               <div className="flex justify-between items-center mb-2">
                 <span className="font-bold text-lg">{title}</span>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="text-xl"
-                >
-                  ×
+                <button onClick={() => setOpen(false)} className="text-xl">
+                  <X size="16" />
                 </button>
               </div>
               <input
@@ -129,5 +129,5 @@ export function SidePanel({
         </CardContent>
       </Card>
     </>
-  )
+  );
 }

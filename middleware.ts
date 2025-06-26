@@ -9,8 +9,6 @@ import { clientConfig, serverConfig } from "./config";
 const PUBLIC_PATHS = ["/signup", "/login"];
 
 export async function middleware(request: NextRequest) {
-  console.log("Middleware", request.nextUrl.pathname);
-
   return authMiddleware(request, {
     loginPath: "/api/login",
     logoutPath: "/api/logout",
