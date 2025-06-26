@@ -31,19 +31,21 @@ export function mapGlossToVideos(
   }[]
 ): { label: string; url: string }[] {
   const wordMap = new Map(
-    wordsWithVideos.map((w) => [
-      w.word.toLowerCase().replace(/-/g, " "),
-      w.wordVideos[0].video?.url,
-    ])
+    wordsWithVideos.filter(
+      (w) => w.wordVideos[0] && w.wordVideos[0].video?.url
+    ).map((w) => [w.word, w.wordVideos[0].video?.url])
   );
+
+  const alphabetsSet = alphabets.filter((a) => a.wordVideos[0]);
+
   const alphaMap = new Map(
-    alphabets.map((a) => [
+    alphabetsSet.map((a) => [
       a.word.toLowerCase(),
       a.wordVideos[0].video?.url || "",
     ])
   );
 
-  const words = gloss.split(/\s+/).filter(Boolean);
+  const words: string[] = gloss.split(/\s+(?!\()/).filter(Boolean);
 
   const result: { label: string; url: string }[] = [];
 

@@ -33,14 +33,15 @@ export default function TranslationScreen() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ gloss }),
+              cache: "no-store",
             });
             if (!res.ok) {
               throw new Error(`HTTP error! status: ${res.status}`);
             }
-            
+
             const data = await res.json();
             console.log(data);
-            
+
             setVideoMap(data.videos);
           } catch (e) {
             console.error("Failed to fetch videos:", e);
@@ -138,6 +139,24 @@ export default function TranslationScreen() {
           Translate
         </Button>
       )}
+
+      {/* <Button
+        onClick={async () => {
+          const res = await fetch("/api/gloss-to-videos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ gloss: translatedText || input }),
+          });
+          if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
+          const data = await res.json();
+          console.log(data);
+        }}
+        className="w-full mt-4"
+      >
+        Check Generation
+      </Button> */}
     </div>
   );
 }

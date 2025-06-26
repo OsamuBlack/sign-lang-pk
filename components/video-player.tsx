@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
@@ -7,6 +9,7 @@ interface VideoSegmentPlayerProps {
     label: string;
     url: string;
   }[];
+  onEnded?: () => void; 
 }
 
 export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
@@ -42,13 +45,13 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
 
   useEffect(() => {
     videoKeys.forEach((key, index) => {
-      loadVideoMetadata(videos[index].url, key);
+      loadVideoMetadata(videos[index]?.url, key);
     });
   }, [videos, videoKeys]);
 
   useEffect(() => {
-    setVideoKeys(videos.map((video) => video.label));
     setCurrentIndex(0);
+    setVideoKeys(videos.map((video) => video.label));
   }, [videos]);
 
   // Handle video playback
@@ -196,7 +199,7 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
                 size="sm"
                 className={`flex-shrink-0 text-xs h-7 px-2 bg-opacity-70 backdrop-blur-sm ${
                   index === currentIndex
-                    ? "bg-blue-600 hover:bg-blue-700 text-black"
+                    ? "bg-primary hover:bg-primary/90 text-foreground"
                     : "bg-gray-800 hover:bg-gray-700 text-white"
                 }`}
               >

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/drizzle/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { words } from "@/drizzle/schema";
 import { mapGlossToVideos } from "@/lib/mapGlossToVideos";
 import { clientConfig, serverConfig } from "@/config";
 import { getTokens } from "next-firebase-auth-edge";
+import { adminDb } from "@/firebase/admin";
 
 export async function POST(req: NextRequest) {
-   const tokens = await getTokens(req.cookies, {
+  const tokens = await getTokens(req.cookies, {
     apiKey: clientConfig.apiKey,
     cookieName: serverConfig.cookieName,
     cookieSignatureKeys: serverConfig.cookieSignatureKeys,
@@ -26,38 +27,42 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const wordsArr: string[] = gloss.split(/\s+/).filter(Boolean);
-
-  // Clean up gloss words
+  const wordsArr: string[] = gloss.split(/\s+(?!\()/).filter(Boolean);
 
   // Split hyphenated words and remove punctuation
-  const cleanedWords = wordsArr.map((word) => word.toLowerCase().replace('-'," "));
+  const cleanedWords = wordsArr.map((word) =>
+    word.toLowerCase().replace("-", " ")
+  );
 
   // Get unique words
   const uniqueWords = Array.from(new Set(cleanedWords));
 
-  console.log("Unique words:", uniqueWords);
-
   // Get list of words that are in the database
-  const wordsWithVideos = await db.query.words.findMany({
-    where: and(inArray(words.word, uniqueWords), eq(words.isAlphabet, false)),
-
-    columns: {
-      id: true,
-      word: true,
-    },
-    with: {
-      wordVideos: {
-        with: {
-          video: {
-            columns: {
-              url: true,
-              size: true,
+  const wordsWithVideos = await db.transaction(async (tx) => {
+    const results = await Promise.all(
+      uniqueWords.map((w) =>
+        tx.query.words.findMany({
+          where: and(eq(words.word, w), eq(words.isAlphabet, false)),
+          columns: {
+            id: true,
+            word: true,
+          },
+          with: {
+            wordVideos: {
+              with: {
+                video: {
+                  columns: {
+                    url: true,
+                    size: true,
+                  },
+                },
+              },
             },
           },
-        }
-      },
-    },
+        })
+      )
+    );
+    return results.flat();
   });
 
   // Alphabets
@@ -77,13 +82,19 @@ export async function POST(req: NextRequest) {
               size: true,
             },
           },
-        }
+        },
       },
     },
   });
 
   // Map gloss to array for video player
   const videoArray = mapGlossToVideos(gloss, wordsWithVideos, alphabets);
+
+  await adminDb.collection("maps").add({
+    inputText: gloss,
+    result: videoArray,
+    time: new Date(),
+  });
 
   return NextResponse.json({ videos: videoArray });
 }

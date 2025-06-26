@@ -48,7 +48,7 @@ export function AppBreadcrumbs() {
                 <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
               ) : (
                 <BreadcrumbLink href={crumb.href}>
-                  {unslug(crumb.name)}
+                  {decodeURIComponent(unslug(crumb.name))}
                 </BreadcrumbLink>
               )}
             </BreadcrumbItem>

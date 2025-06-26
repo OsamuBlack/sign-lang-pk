@@ -8,6 +8,8 @@ import { clientConfig, serverConfig } from "@/config";
 import { getTokens } from "next-firebase-auth-edge";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/firebase/admin";
+import { getWordsWithVideos, getAlphabets } from "@/lib/wordsWithVideos";
+import { mapGlossToVideos } from "@/lib/mapGlossToVideos";
 
 export const maxDuration = 50; // Allow streaming responses up to 30 seconds
 
@@ -23,7 +25,33 @@ export async function POST(req: NextRequest) {
   if (!tokens) {
     return NextResponse.json({ error: "Unauthenticated" }, { status: 401 }); // 401 Unauthorized is more appropriate
   }
-  const prompt: string = await req.json();
+  const {
+    prompt,
+    book,
+    document,
+  }: {
+    prompt: string;
+    book: string;
+    document: string;
+  } = await req.json();
+
+  if (!prompt) {
+    return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+  }
+
+  const doc = await adminDb
+    .collection("books")
+    .doc(book)
+    .collection("documents")
+    .doc(document)
+    .get();
+  // Check firebase if document path exists
+  if (doc.exists) {
+    return NextResponse.json(
+      { error: "Document already exists" },
+      { status: 400 }
+    );
+  }
 
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
@@ -89,11 +117,41 @@ The result will be given in json format with key/value pairs of sentences and th
     schema: toGlossSchema,
   });
 
-  await adminDb.collection("translations").add({
-    inputText: prompt,
-    result: result.object,
-    time: new Date(),
-  });
+  // Gather all unique words from all gloss sentences
+  const allGlosses = result.object.sentences.map((s) => s.to);
+  const wordsArr = allGlosses
+    .flatMap((gloss) => gloss.split(/\s+(?!\()/).filter(Boolean))
+    .map((word) => word.toLowerCase().replace(/-/g, " "));
+  const uniqueWords = Array.from(new Set(wordsArr));
 
-  return Response.json(result.object);
+  // Get words with videos and alphabets
+  const [wordsWithVideos, alphabets] = await Promise.all([
+    getWordsWithVideos(uniqueWords),
+    getAlphabets(),
+  ]);
+
+  // Remap sentences to include feed
+  const sentencesWithFeed = result.object.sentences.map((s) => ({
+    ...s,
+    feed: mapGlossToVideos(s.to, wordsWithVideos, alphabets).map((v) => ({
+      word: v.label,
+      url: v.url,
+      // Find id for word if available
+      id:
+        wordsWithVideos.find((w) =>
+          w.word.toLowerCase() === v.label.toLowerCase()
+        )?.id || null,
+    })),
+  }));
+
+  const finalObject = { ...result.object, sentences: sentencesWithFeed };
+
+  await adminDb
+    .collection("books")
+    .doc(book)
+    .collection("documents")
+    .doc(document)
+    .set(finalObject);
+
+  return Response.json(finalObject);
 }

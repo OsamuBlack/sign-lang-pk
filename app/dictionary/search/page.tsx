@@ -4,7 +4,6 @@ import { like } from "drizzle-orm";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import type { InferSelectModel } from "drizzle-orm";
-import { slug } from "@/lib/slug";
 
 export default async function DictionarySearchPage({
   searchParams,
@@ -38,7 +37,7 @@ export default async function DictionarySearchPage({
               className="p-5 flex flex-col gap-2 border shadow-md hover:shadow-lg transition-shadow text-center"
             >
               <Link
-                href={`/dictionary/word/${slug(word.word)}`}
+                href={`/dictionary/word/${word.id}`}
                 className="text-xl font-semibold text-primary hover:underline"
               >
                 {word.word.toUpperCase()}

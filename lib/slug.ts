@@ -19,12 +19,6 @@ export const slug = (input: string): string => {
  * - Otherwise, does kebab-case to title-case reversal.
  */
 export const unslug = (input: string): string => {
-  console.log(
-    input,
-    input
-      .replace(/ and /g, " & ")
-      .replaceAll("-", " ")
-  );
   return input
     // .replace(/ and /g, " & ")
     .replaceAll("-", " ")

@@ -7,6 +7,7 @@ import {
   BookOpen,
   Bot,
   Command,
+  FilePlus2,
   GalleryVerticalEnd,
   Languages,
   Settings2,
@@ -149,8 +150,13 @@ const data = {
     },
     {
       name: "Pre-Translated Text",
-      url: "/pre-translated",
+      url: "/pre-translations/books",
       icon: Languages,
+    },
+    {
+      name: "Add Document",
+      url: "/add-document",
+      icon: FilePlus2,
     },
   ],
 };
