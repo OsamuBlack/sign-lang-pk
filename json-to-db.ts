@@ -40,33 +40,32 @@ async function insertWordsFromFile() {
   }
 
   for (const entry of data) {
-    const wordRes = await db
-      .insert(words)
-      .values({
-        word: entry.item,
-        definition: "",
-        categoryId: Number(entry.category),
-        url: entry.url,
-        isAlphabet: [7, 8, 84].includes(entry.category),
-      })
-      .returning();
+    // Insert word and get last inserted id
+    await db.insert(words).values({
+      word: entry.item,
+      definition: "",
+      categoryId: Number(entry.category),
+      url: entry.url,
+      isAlphabet: [7, 8, 84].includes(Number(entry.category)),
+    });
 
-    const wordId = wordRes[0].id;
+    // Get last inserted word id
+    const wordIdRow = await db.get(sql`SELECT last_insert_rowid() as id`);
+    const wordId = wordIdRow.id;
 
     for (const video of entry.video_sources) {
       const size = Number(video.size);
       if (!allowedSizes.includes(size)) continue;
       if (!video.url) continue;
 
-      const videoRes = await db
-        .insert(videoUrls)
-        .values({
-          url: video.url,
-          size,
-        })
-        .returning();
+      await db.insert(videoUrls).values({
+        url: video.url,
+        size,
+      });
 
-      const videoId = videoRes[0].id;
+      // Get last inserted video id
+      const videoIdRow = await db.get(sql`SELECT last_insert_rowid() as id`);
+      const videoId = videoIdRow.id;
 
       await db.insert(wordVideos).values({
         wordId,
@@ -78,4 +77,5 @@ async function insertWordsFromFile() {
   console.log("✅ Inserted all words.");
 }
 
+insertWordsFromFile().catch(console.error);
 insertWordsFromFile().catch(console.error);

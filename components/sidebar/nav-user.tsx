@@ -22,6 +22,7 @@ import { getAuth, signOut } from "firebase/auth";
 import { app } from "@/firebase/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
@@ -30,8 +31,13 @@ export function NavUser() {
 
   const router = useRouter();
 
+  useEffect(() => {
+    if (!user) {
+      router.push("/login");
+    }
+  }, [user, router]);
+
   if (!user) {
-    router.push("/login");
     return null;
   }
 

@@ -13,18 +13,43 @@ export default function TranslationScreen() {
   const [input, setInput] = useState<string>();
   const [translatedText, setTranslatedText] = useState<string>();
   const [isReversed, setIsReversed] = useState(false);
-  // const [grammerLayouted, setGrammerLayouted] = useState(false);
-  // const [signLayouted, setSignLayouted] = useState(false);
+  const [videoMap, setVideoMap] =
+    useState<Array<{ label: string; url: string }>>();
 
   const { submit, isLoading, stop } = useObject({
     api: isReversed ? "/api/gloss-to-text" : "/api/text-to-gloss",
     schema: isReversed ? fromGlossSchema : toGlossSchema,
-    onFinish({ object, error }) {
+    async onFinish({ object, error }) {
       if (object) {
         toast.success("Generated response successfully!");
         const sentences = object.sentences.map((pair) => pair);
         setInput(sentences.map((pair) => pair.from).join(" "));
-        setTranslatedText(sentences.map((pair) => pair.to).join(" "));
+        const gloss = sentences.map((pair) => pair.to).join(" ");
+        setTranslatedText(gloss);
+        // Fetch video mapping for gloss
+        if (!isReversed) {
+          try {
+            const res = await fetch("/api/gloss-to-videos", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ gloss }),
+            });
+            if (!res.ok) {
+              throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            
+            const data = await res.json();
+            console.log(data);
+            
+            setVideoMap(data.videos);
+          } catch (e) {
+            console.error("Failed to fetch videos:", e);
+            toast.error("Failed to fetch videos for gloss");
+            setVideoMap(undefined);
+          }
+        } else {
+          setVideoMap(undefined);
+        }
       }
       if (error) {
         toast.error("Failed to parse generated response.");
@@ -41,14 +66,8 @@ export default function TranslationScreen() {
     setIsReversed(!isReversed);
     setInput(translatedText);
     setTranslatedText(input);
+    setVideoMap(undefined);
   }, [isReversed, setInput, translatedText, input]);
-
-  // useEffect(() => {
-  //   if (!isLoading && signLayouted && grammerLayouted) {
-  //     setSignLayouted(false);
-  //     setGrammerLayouted(false);
-  //   }
-  // }, [grammerLayouted, isLoading, signLayouted]);
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
@@ -95,14 +114,7 @@ export default function TranslationScreen() {
         </div>
       </div>
       <div className="mt-4">
-        <VideoSegmentPlayer
-          videos={{
-            W: "https://api.aajkaadin.com/video?session=session&file=/storage/videos/w/720p/w_1598514882_93790.mp4",
-            X: "https://api.aajkaadin.com/video?session=session&file=/storage/videos/x/720p/x_1598514901_59022.mp4",
-            Y: "https://api.aajkaadin.com/video?session=session&file=/storage/videos/y/720p/y_1598514921_17735.mp4",
-            Z: "https://api.aajkaadin.com/video?session=session&file=/storage/videos/z/720p/z_1598514941_50908.mp4",
-          }}
-        />
+        <VideoSegmentPlayer videos={videoMap?.length ? videoMap : []} />
       </div>
       {isLoading ? (
         <Button
@@ -119,7 +131,6 @@ export default function TranslationScreen() {
               toast.error("Please enter text to translate");
               return;
             }
-            console.log(input);
             submit(input);
           }}
           className="w-full mt-4"

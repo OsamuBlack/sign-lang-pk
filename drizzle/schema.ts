@@ -1,15 +1,15 @@
-import {
-  sqliteTable,
-  integer,
-  text,
-  primaryKey,
-} from "drizzle-orm/sqlite-core";
+import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
 
 // Categories Table
 export const categories = sqliteTable("categories", {
   id: integer("id").primaryKey(),
   name: text("name").notNull(),
 });
+
+export const categoryRelations = relations(categories, ({ many }) => ({
+  words: many(words),
+}));
 
 // Words Table
 export const words = sqliteTable("words", {
@@ -30,6 +30,14 @@ export const words = sqliteTable("words", {
   url: text("url").notNull(),
 });
 
+export const wordRelations = relations(words, ({ one, many }) => ({
+  category: one(categories, {
+    fields: [words.categoryId],
+    references: [categories.id],
+  }),
+  wordVideos: many(wordVideos),
+}));
+
 // Video URLs Table
 export const videoUrls = sqliteTable("video_urls", {
   id: integer("id").primaryKey(),
@@ -37,16 +45,22 @@ export const videoUrls = sqliteTable("video_urls", {
   size: integer("size").notNull(),
 });
 
-// Word-Videos Mapping Table (many-to-many)
-export const wordVideos = sqliteTable(
-  "word_videos",
-  {
-    wordId: integer("word_id")
-      .notNull()
-      .references(() => words.id, { onDelete: "cascade" }),
-    videoId: integer("video_id")
-      .notNull()
-      .references(() => videoUrls.id, { onDelete: "cascade" }),
-  },
-  (table) => [primaryKey({ columns: [table.wordId, table.videoId] })]
-);
+export const videoUrlRelations = relations(videoUrls, ({ many }) => ({
+  wordVideos: many(wordVideos),
+}));
+
+export const wordVideos = sqliteTable("word_videos", {
+  wordId: integer("word_id").references(() => words.id),
+  videoId: integer("video_id").references(() => videoUrls.id),
+});
+
+export const wordVideosRelations = relations(wordVideos, ({ one }) => ({
+  video: one(videoUrls, {
+    fields: [wordVideos.videoId],
+    references: [videoUrls.id],
+  }),
+  word: one(words, {
+    fields: [wordVideos.wordId],
+    references: [words.id],
+  }),
+}));
