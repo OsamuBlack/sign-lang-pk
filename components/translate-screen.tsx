@@ -1,108 +1,66 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { useEdgesState, useNodesState } from "reactflow";
-import "reactflow/dist/style.css";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeftRight, PlayIcon } from "lucide-react";
-import GrammerSyntaxTree from "./grammerTree";
-import GlossSyntaxTree from "./signTree";
+import { ArrowLeftRight } from "lucide-react";
 import { toast } from "sonner";
-import {
-  timeGlossEdges,
-  timeGlossNodes,
-  timeGrammerEdges,
-  timeGrammerNodes,
-} from "@/lib/examples";
-import { GrammarNode } from "./grammerTree/type";
-import { GlossNode } from "./signTree/type";
-import { VideoPopup } from "./video-stream";
+import { experimental_useObject as useObject } from "@ai-sdk/react";
+import { fromGlossSchema, toGlossSchema } from "@/lib/translationSchema";
+import { VideoSegmentPlayer } from "./video-player";
 
 export default function TranslationScreen() {
-  const [inputText, setInputText] = useState("Time flies like an arrow.");
-  const [translatedText, setTranslatedText] = useState<string>("TIME FLY SAME-ARROW");
+  const [input, setInput] = useState<string>();
+  const [translatedText, setTranslatedText] = useState<string>();
   const [isReversed, setIsReversed] = useState(false);
-  const [grammerNodes, setGrammerNodes, onGrammerNodesChange] =
-    useNodesState(timeGrammerNodes);
-  const [grammerEdges, setGrammerEdges, onGrammerEdgesChange] =
-    useEdgesState(timeGrammerEdges);
-  const [signNodes, setSignNodes, onGlossNodesChange] =
-    useNodesState(timeGlossNodes);
-  const [signEdges, setSignEdges, onGlossEdgesChange] =
-    useEdgesState(timeGlossEdges);
-  const [loading, setLoading] = useState(false);
+  // const [grammerLayouted, setGrammerLayouted] = useState(false);
+  // const [signLayouted, setSignLayouted] = useState(false);
 
-  const [grammerLayouted, setGrammerLayouted] = useState(false);
-  const [signLayouted, setSignLayouted] = useState(false);
-
-  const handleTranslate = useCallback(async () => {
-    if (!inputText) {
-      toast.error("Please enter text to translate");
-      return;
-    }
-    setLoading(true);
-    const toastLoading = toast.loading("Translating...");
-    try {
-      const response = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: inputText, reversed: isReversed }),
-        cache: "no-cache",
-      });
-      if (!response.ok) throw new Error("Translation failed");
-      const data = await response.json();
-      setTranslatedText(data.translatedText);
-      setGrammerNodes([...data.grammerNodes]);
-      setGrammerEdges([...data.grammerEdges]);
-      setSignNodes([...data.signNodes]);
-      setSignEdges([...data.signEdges]);
-      setLoading(false);
-
-      console.log(signNodes);
-    } catch (error) {
-      console.error(error);
-      alert("Error during translation");
-    } finally {
-      toast.dismiss(toastLoading);
-    }
-  }, [
-    inputText,
-    isReversed,
-    setGrammerEdges,
-    setGrammerNodes,
-    setSignEdges,
-    setSignNodes,
-    signNodes,
-  ]);
+  const { submit, isLoading, stop } = useObject({
+    api: isReversed ? "/api/gloss-to-text" : "/api/text-to-gloss",
+    schema: isReversed ? fromGlossSchema : toGlossSchema,
+    onFinish({ object, error }) {
+      if (object) {
+        toast.success("Generated response successfully!");
+        const sentences = object.sentences.map((pair) => pair);
+        setInput(sentences.map((pair) => pair.from).join(" "));
+        setTranslatedText(sentences.map((pair) => pair.to).join(" "));
+      }
+      if (error) {
+        toast.error("Failed to parse generated response.");
+        console.error("Parsing error:", error);
+      }
+    },
+    onError(error) {
+      toast.error("An error occurred during generation.");
+      console.error("Generation error:", error);
+    },
+  });
 
   const handleSwitch = useCallback(() => {
     setIsReversed(!isReversed);
-    setInputText(translatedText);
-    setTranslatedText(inputText);
-  }, [isReversed, inputText, translatedText]);
+    setInput(translatedText);
+    setTranslatedText(input);
+  }, [isReversed, setInput, translatedText, input]);
 
-  useEffect(() => {
-    if (!loading && signLayouted && grammerLayouted) {
-      setSignLayouted(false);
-      setGrammerLayouted(false);
-    }
-  }, [grammerLayouted, loading, signLayouted]);
+  // useEffect(() => {
+  //   if (!isLoading && signLayouted && grammerLayouted) {
+  //     setSignLayouted(false);
+  //     setGrammerLayouted(false);
+  //   }
+  // }, [grammerLayouted, isLoading, signLayouted]);
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
-      {/* <Card>
-        <CardContent className="p-4"> */}
       <div className="flex flex-col space-y-4 md:space-y-0 md:flex-row md:items-center md:justify-between mb-4">
         <h1 className="text-2xl font-bold">Text to Sign Language</h1>
         <Button
           onClick={handleSwitch}
           variant="outline"
-          size="sm"
+          size="icon"
           className="self-start md:self-auto"
         >
-          <ArrowLeftRight className="h-4 w-4 mr-2" />
-          Switch
+          <ArrowLeftRight size="16" />
         </Button>
         <h2 className="text-xl font-semibold">Sign Language to Text</h2>
       </div>
@@ -115,29 +73,12 @@ export default function TranslationScreen() {
             placeholder={
               isReversed ? "Enter sign language" : "Enter text to translate"
             }
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
             rows={8}
             className="resize-none"
           />
-          <div className="aspect-video border rounded">
-            {/* <ReactFlow nodes={nodes} edges={edges} fitView>
-              <Background />
-              <Controls />
-            </ReactFlow> */}
-            <GrammerSyntaxTree
-              nodes={grammerNodes as GrammarNode[]}
-              edges={grammerEdges || []}
-              setNodes={setGrammerNodes}
-              setEdges={setGrammerEdges}
-              onNodesChange={onGrammerNodesChange}
-              onEdgesChange={onGrammerEdgesChange}
-              setLayoutApplied={setGrammerLayouted}
-              layoutApplied={grammerLayouted}
-            />
-          </div>
         </div>
-        {/* <div className="hidden md:block w-px self-stretch bg-gray-200"></div> */}
         <div className="flex-1 space-y-2 relative">
           <label className="font-medium text-sm">
             {isReversed ? "Translated Text" : "Sign Language Output"}
@@ -151,43 +92,41 @@ export default function TranslationScreen() {
             rows={8}
             className="resize-none"
           />
-          {translatedText ? (
-            <VideoPopup
-            // letterIndexes={translatedText
-            //   .split(" ")
-            //   .map((letter) => letter.charCodeAt(0) - 65)}
-            >
-              <Button className="absolute top-8 right-2 flex gap-2 items-center">
-                <PlayIcon className="h-4 w-4 fill-white" />
-                Open Sign Video
-              </Button>
-            </VideoPopup>
-          ) : (
-            ""
-          )}
-          <div className="aspect-video border rounded">
-            {/* <ReactFlow nodes={nodesTranslated} edges={edgesTranslated} fitView>
-              <Background />
-              <Controls />
-            </ReactFlow> */}
-            <GlossSyntaxTree
-              nodes={signNodes as GlossNode[]}
-              edges={signEdges}
-              setNodes={setSignNodes}
-              setEdges={setSignEdges}
-              onNodesChange={onGlossNodesChange}
-              onEdgesChange={onGlossEdgesChange}
-              setLayoutApplied={setSignLayouted}
-              layoutApplied={signLayouted}
-            />
-          </div>
         </div>
       </div>
-      <Button onClick={handleTranslate} className="w-full mt-4">
-        Translate
-      </Button>
-      {/* </CardContent>
-      </Card> */}
+      <div className="mt-4">
+        <VideoSegmentPlayer
+          videos={{
+            W: "https://api.aajkaadin.com/video?session=session&file=/storage/videos/w/720p/w_1598514882_93790.mp4",
+            X: "https://api.aajkaadin.com/video?session=session&file=/storage/videos/x/720p/x_1598514901_59022.mp4",
+            Y: "https://api.aajkaadin.com/video?session=session&file=/storage/videos/y/720p/y_1598514921_17735.mp4",
+            Z: "https://api.aajkaadin.com/video?session=session&file=/storage/videos/z/720p/z_1598514941_50908.mp4",
+          }}
+        />
+      </div>
+      {isLoading ? (
+        <Button
+          onClick={() => stop()}
+          variant="destructive"
+          className="w-full mt-4"
+        >
+          Stop
+        </Button>
+      ) : (
+        <Button
+          onClick={() => {
+            if (!input) {
+              toast.error("Please enter text to translate");
+              return;
+            }
+            console.log(input);
+            submit(input);
+          }}
+          className="w-full mt-4"
+        >
+          Translate
+        </Button>
+      )}
     </div>
   );
 }

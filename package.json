@@ -13,6 +13,9 @@
     "deploy:worker": "npm run build:worker && wrangler deploy"
   },
   "dependencies": {
+    "@ai-sdk/google": "^1.2.19",
+    "@ai-sdk/openai": "^1.3.22",
+    "@ai-sdk/react": "^1.2.12",
     "@google/generative-ai": "^0.21.0",
     "@hookform/resolvers": "^3.10.0",
     "@libsql/client": "^0.15.9",
@@ -24,6 +27,7 @@
     "@radix-ui/react-separator": "^1.1.1",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tooltip": "^1.1.6",
+    "ai": "^4.3.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
@@ -40,7 +44,7 @@
     "sonner": "^1.7.2",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.24.1"
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
