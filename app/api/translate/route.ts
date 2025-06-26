@@ -2,15 +2,14 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getTokens } from "next-firebase-auth-edge";
 import { NextRequest, NextResponse } from "next/server";
 import { clientConfig, serverConfig } from "@/config";
-import {
-  timeGlossEdges,
-  timeGlossNodes,
-  timeGrammerEdges,
-  timeGrammerNodes,
-} from "@/lib/examples";
 import { adminDb } from "@/firebase/admin";
 
-const MODEL_NAME = "gemini-1.5-flash";
+
+export const config = {
+  runtime: "edge",
+};
+
+const MODEL_NAME = "gemini-2.0-flash";
 const apiKey = process.env.GEMINI_ENDPOINT;
 const genAI = new GoogleGenerativeAI(apiKey || "");
 const model = genAI.getGenerativeModel({
@@ -40,163 +39,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const prompt = `
-      You are an expert translator between English and sign language. 
+    const prompt = `You are an expert translator between English and sign language. 
 
-      I will provide a text and you need to return a JSON object with the following fields:
+You are an expert in Pakistan Sign Language (PSL) glossing. Your task is to convert English sentences into PSL gloss, following a specific, consistent, and concise style. Adhere strictly to these rules:
 
-      Before returning make sure to return a response similar to following:
+Pronouns/Indexing:
 
-      GrammerNode[]
-      ${JSON.stringify(timeGrammerNodes)}
+Negation: use DON'T-LIKE, NOT, or NO
 
-      GrammerEdge[]
-      ${JSON.stringify(timeGrammerEdges)}
+Conciseness: Prioritize direct PSL signs over lengthy descriptive glosses or English idioms. Avoid explicit CL: notation for classifiers; instead, use a single, descriptive gloss for the action/concept.
 
-      SignNode[]
-      ${JSON.stringify(timeGlossNodes)}
-    
-      SignEdge[]
-      ${JSON.stringify(timeGlossEdges)}
+Compounds: Use a single gloss for single PSL signs, even if the English word is a compound (e.g., BOOKSTORE for "bookstore," PARENTS for "parents"). Do not use + to join words.
 
-      ${
-        reversed
-          ? `- translatedText: Simple english grammar for the gloss. "ICE-CREAM I LIKE I" -> "I like Ice-Cream"`
-          : `- translatedText: A gloss translation of the text into the target sign language. e.g. "I like Ice-Cream" -> "ICE-CREAM I LIKE I"`
-      }
-      - grammerNodes: An array of objects representing the syntax tree of the **original english** text.
-        Each object should have the following structure:
-          type SentenceLevel = "sentence";
+Repetition: Do not use +++ or ++ to indicate repetition or continuous action. If repetition is implied, keep the sign singular.
 
-          type ClauseLevel =
-            | "clause"
-            | "independentClause"
-            | "dependentClause"
-            | "relativeClause"
-            | "subordinateClause";
+Punctuation: End sentences with a period . or question mark ? as appropriate.
 
-          type PhraseLevel =
-            | "phrase"
-            | "nounPhrase"
-            | "verbPhrase"
-            | "adjectivePhrase"
-            | "adverbPhrase"
-            | "prepPhrase"
-            | "gerundPhrase"
-            | "infinitivePhrase"
-            | "participlePhrase";
+Fingerspelling: Indicate fingerspelling with FINGERSPELL- followed by the word in ALL CAPS (e.g.,  fs-B-A-R-B-A-R-A).
 
-          type WordLevel =
-            | "word"
-            | "noun"
-            | "pronoun"
-            | "verb"
-            | "auxiliaryVerb"
-            | "modalVerb"
-            | "adjective"
-            | "adverb"
-            | "preposition"
-            | "conjunction"
-            | "coordinatingConjunction"
-            | "subordinatingConjunction"
-            | "correlativeConjunction"
-            | "determiner"
-            | "interjection"
-            | "particle";
+Examples to follow:
 
-          type NodeType = SentenceLevel | ClauseLevel | PhraseLevel | WordLevel;
+"What is your name?" -> WHAT YOUR NAME WHAT?
 
-          interface GrammarNode {
-            id: string;
-            type: NodeType;
-            data: {
-              label: string;
-              fullForm?: string;
-              isWord?: boolean; // (leaf nodes)
-            };
-            position: {
-              x: number;
-              y: number;
-            };
-          }
+"I'm not sad." ->I SAD NOT.
 
-      - grammerEdges: An array of objects representing the connections of the syntax tree, each object should have the form:
-        - id: a unique string
-        - source: a string with the id of a node
-        - target: a string with the id of a node
+"Yesterday morning, I woke up at 7 o'clock." -> YESTERDAY MORNING I WAKE-UP 7 O'CLOCK.
 
-      - signNodes: An array of objects representing the syntax tree of the **translated gloss sign language** text. 
-        Each object should have the following structure:
-          // Sentence level (full signed thought)
-          export type SentenceLevel = "signedSentence";
+"Tell me how you feel." -> HOW YOU FEEL TELL I.
 
-          // Clause level (independent/dependent clauses)
-          export type ClauseLevel =
-            | "signedClause"
-            | "independentClause"
-            | "dependentClause"
-            | "conditionalClause"
-            | "relativeClause";
+"Yesterday at work a stranger (some guy I've never seen before) rushed past me." -> YESTERDAY WORK STRANGER (SOME GUY NEVER SEE BEFORE) I RUSH-PAST I.
 
-          // Phrase level (structural groups)
-          export type PhraseLevel =
-            | "signedPhrase"
-            | "topicPhrase" // For topic-comment structure
-            | "commentPhrase"
-            | "nounPhrase"
-            | "verbPhrase"
-            | "adjectivePhrase"
-            | "adverbPhrase"
-            | "prepositionalPhrase"
-            | "classifierPhrase"; // Used for shape/movement representation
+"My parents have been married for eighteen years." -> PARENTS MINE MARRIED EIGHTEEN YEAR HAVE-BEEN.
 
-          // Word level (individual signs in gloss format)
-          export type WordLevel =
-            | "signedWord"
-            | "topic"
-            | "comment"
-            | "noun"
-            | "pronoun"
-            | "verb"
-            | "adjective"
-            | "adverb"
-            | "preposition"
-            | "conjunction"
-            | "determiner"
-            | "classifier";
+"It's easy." -> EASY.
 
-          // All node types combined
-          export type GlossNodeType =
-            | SentenceLevel
-            | ClauseLevel
-            | PhraseLevel
-            | WordLevel;
+"I like dogs." -> DOGS I LIKE I.
 
-          // Sign Language Gloss Node
-          export interface GlossNode {
-            id: string;
-            type: GlossNodeType;
-            data: {
-              label: string; 
-              fullForm?: string; 
-              isManual?: boolean // (leaf nodes);
-            };
-            position: {
-              x: number;
-              y: number;
-            };
-          }
+"She is a teacher." -> SHE TEACHER SHE.
 
-      - signEdges: An array of objects representing the connections of the sign language syntax tree, each object should have the form:
-        - id: a unique string
-        - source: a string with the id of a node
-        - target: a string with the id of a node
+"The cat looks up at the bird." -> BIRD CAT LOOK-UP CAT.
 
-      Return ONLY the JSON string.  Do not include any other text or explanations.
-      
-      Make sure to only use the types provided in the prompt.
-
-      Here is the input text: ${text}
+Here is the input text: ${text}
     `;
 
     const result = await model.generateContent(prompt);

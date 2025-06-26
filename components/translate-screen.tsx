@@ -5,7 +5,7 @@ import { useEdgesState, useNodesState } from "reactflow";
 import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight, PlayIcon } from "lucide-react";
 import GrammerSyntaxTree from "./grammerTree";
 import GlossSyntaxTree from "./signTree";
 import { toast } from "sonner";
@@ -17,10 +17,11 @@ import {
 } from "@/lib/examples";
 import { GrammarNode } from "./grammerTree/type";
 import { GlossNode } from "./signTree/type";
+import { VideoPopup } from "./video-stream";
 
 export default function TranslationScreen() {
-  const [inputText, setInputText] = useState("");
-  const [translatedText, setTranslatedText] = useState("");
+  const [inputText, setInputText] = useState("Time flies like an arrow.");
+  const [translatedText, setTranslatedText] = useState<string>("TIME FLY SAME-ARROW");
   const [isReversed, setIsReversed] = useState(false);
   const [grammerNodes, setGrammerNodes, onGrammerNodesChange] =
     useNodesState(timeGrammerNodes);
@@ -137,7 +138,7 @@ export default function TranslationScreen() {
           </div>
         </div>
         {/* <div className="hidden md:block w-px self-stretch bg-gray-200"></div> */}
-        <div className="flex-1 space-y-2">
+        <div className="flex-1 space-y-2 relative">
           <label className="font-medium text-sm">
             {isReversed ? "Translated Text" : "Sign Language Output"}
           </label>
@@ -150,6 +151,20 @@ export default function TranslationScreen() {
             rows={8}
             className="resize-none"
           />
+          {translatedText ? (
+            <VideoPopup
+            // letterIndexes={translatedText
+            //   .split(" ")
+            //   .map((letter) => letter.charCodeAt(0) - 65)}
+            >
+              <Button className="absolute top-8 right-2 flex gap-2 items-center">
+                <PlayIcon className="h-4 w-4 fill-white" />
+                Open Sign Video
+              </Button>
+            </VideoPopup>
+          ) : (
+            ""
+          )}
           <div className="aspect-video border rounded">
             {/* <ReactFlow nodes={nodesTranslated} edges={edgesTranslated} fitView>
               <Background />
