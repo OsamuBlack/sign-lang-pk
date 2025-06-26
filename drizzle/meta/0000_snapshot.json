@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c6278e62-cbf1-4007-8363-bce4a426de53",
+  "id": "6a8081da-1e35-49ac-9b6e-d1f1b196cf6e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "categories": {
@@ -51,9 +51,31 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "video_urls_size_idx": {
+          "name": "video_urls_size_idx",
+          "columns": [
+            "size"
+          ],
+          "isUnique": false
+        },
+        "video_urls_type_idx": {
+          "name": "video_urls_type_idx",
+          "columns": [
+            "type"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -66,14 +88,14 @@
           "name": "word_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "video_id": {
           "name": "video_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         }
       },
@@ -163,7 +185,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'\"2025-06-26T05:24:45.856Z\"'"
+          "default": "(current_timestamp)"
         },
         "updated_at": {
           "name": "updated_at",
@@ -171,7 +193,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'\"2025-06-26T05:24:45.856Z\"'"
+          "default": "(current_timestamp)"
         },
         "url": {
           "name": "url",
@@ -179,9 +201,38 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "image_url": {
+          "name": "image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "words_word_idx": {
+          "name": "words_word_idx",
+          "columns": [
+            "word"
+          ],
+          "isUnique": false
+        },
+        "words_category_id_idx": {
+          "name": "words_category_id_idx",
+          "columns": [
+            "category_id"
+          ],
+          "isUnique": false
+        },
+        "words_is_alphabet_idx": {
+          "name": "words_is_alphabet_idx",
+          "columns": [
+            "is_alphabet"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "words_category_id_categories_id_fk": {
           "name": "words_category_id_categories_id_fk",

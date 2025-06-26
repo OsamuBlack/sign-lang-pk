@@ -3,10 +3,21 @@ import { categories } from "@/drizzle/schema";
 import { SidePanel } from "@/components/ui/sidepanel";
 import { DictionarySearchBar } from "@/components/DictionarySearchBar";
 import React from "react";
+import { slug } from "@/lib/slug";
+// import {unstable_cache as cache} from "next/cache"
 
-export default async function DictionaryLayout({ children }: { children: React.ReactNode }) {
+export default async function DictionaryLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const cats = await db.select().from(categories);
-  const items = cats.map((cat) => ({ id: cat.id, name: cat.name, href: `/dictionary/${cat.name}` }));
+
+  const items = cats.map((cat) => ({
+    id: cat.id,
+    name: cat.name,
+    href: `/dictionary/${slug(cat.name)}`,
+  }));
 
   // Try to extract selectedId from the current path
   let selectedId: number | undefined = undefined;

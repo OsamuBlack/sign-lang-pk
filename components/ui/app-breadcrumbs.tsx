@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import React from "react";
 import { ChevronRight } from "lucide-react";
+import { unslug } from "@/lib/slug";
 
 function getBreadcrumbs(pathname: string) {
   // Remove query/hash, split, and filter empty
@@ -47,7 +48,7 @@ export function AppBreadcrumbs() {
                 <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
               ) : (
                 <BreadcrumbLink href={crumb.href}>
-                  {crumb.name}
+                  {unslug(crumb.name)}
                 </BreadcrumbLink>
               )}
             </BreadcrumbItem>

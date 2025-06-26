@@ -1,8 +1,10 @@
 import { defineConfig } from "drizzle-kit";
+
 export default defineConfig({
-  dialect: "sqlite", // 'mysql' | 'sqlite' | 'turso'
+  dialect: "turso", // 'mysql' | 'sqlite' | 'turso'
   schema: "./drizzle/schema.ts",
   dbCredentials: {
-    url: "file:./database.db",
+    url: process.env.TURSO_DATABASE_URL!,
+    authToken: process.env.TURSO_AUTH_TOKEN!,
   },
 });

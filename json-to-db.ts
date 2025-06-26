@@ -1,81 +1,131 @@
-// import { db } from "@/drizzle/db"; // your drizzle client
-// import { words, videoUrls, wordVideos, categories } from "@/drizzle/schema";
-// import { eq, sql } from "drizzle-orm/";
-// import fs from "fs/promises";
+import { db } from "@/drizzle/db";
+import { words, videoUrls, wordVideos, categories } from "@/drizzle/schema";
+import fs from "fs/promises";
+import { slug } from "./lib/slug";
 
-// async function insertWordsFromFile() {
-//   const raw = await fs.readFile("../json/all_video_sources.json", "utf-8");
-//   const categoriesRaw = await fs.readFile(
-//     "../json/psl_categories.json",
-//     "utf-8"
-//   );
-//   const data = JSON.parse(raw);
-//   const categoriesData: [string, string][] = JSON.parse(categoriesRaw);
+const BATCH_SIZE = 100;
 
-//   const allowedSizes = [240, 360, 480, 720];
+async function insertWordsFromFile() {
+  const raw = await fs.readFile("../json/all_video_sources.json", "utf-8");
+  const categoriesRaw = await fs.readFile(
+    "../json/psl_categories.json",
+    "utf-8"
+  );
 
-//   // First show all tables names
-//   const tables = await db.run(
-//     sql`SELECT name FROM sqlite_master WHERE type='table'`
-//   );
-//   console.log(
-//     "Tables in the database:",
-//     tables
-//   );
+  const data: {
+    item: string;
+    category: string;
+    url: string;
+    video_sources?: { url: string; size: number; type?: string }[];
+  }[] = JSON.parse(raw);
+  const categoriesData: [string, string][] = JSON.parse(categoriesRaw);
 
-//   // Insert categories if they don't exist
-//   for (const [id, name] of categoriesData) {
-//     const existingCategory = await db
-//       .select()
-//       .from(categories)
-//       .where(eq(categories.id, Number(id)))
-//       .limit(1);
+  const allowedSizes = [240, 360, 480, 720];
 
-//     if (existingCategory.length === 0) {
-//       await db.insert(categories).values({
-//         id: Number(id),
-//         name,
-//       });
-//     }
-//   }
+  console.log("Inserting categories...");
+  await db.transaction(async (tx) => {
+    for (const [id, name] of categoriesData) {
+      await tx
+        .insert(categories)
+        .values({ id: Number(id), name,
+          slug: slug(name)
+         })
+        .onConflictDoNothing();
+    }
+  });
 
-//   for (const entry of data) {
-//     // Insert word and get last inserted id
-//     await db.insert(words).values({
-//       word: entry.item,
-//       definition: "",
-//       categoryId: Number(entry.category),
-//       url: entry.url,
-//       isAlphabet: [7, 8, 84].includes(Number(entry.category)),
-//     });
+  const existingWords = new Set<string>();
+  const existingVideos = new Set<string>();
 
-//     // Get last inserted word id
-//     const wordIdRow = await db.get(sql`SELECT last_insert_rowid() as id`);
-//     const wordId = wordIdRow.id;
+  console.log("Fetching existing words...");
+  const existingWordRows = await db.select({ word: words.word }).from(words);
+  existingWordRows.forEach((row) => existingWords.add(row.word));
 
-//     for (const video of entry.video_sources) {
-//       const size = Number(video.size);
-//       if (!allowedSizes.includes(size)) continue;
-//       if (!video.url) continue;
+  console.log("Fetching existing videos...");
+  const existingVideoRows = await db
+    .select({ url: videoUrls.url })
+    .from(videoUrls);
+  existingVideoRows.forEach((row) => existingVideos.add(row.url));
 
-//       await db.insert(videoUrls).values({
-//         url: video.url,
-//         size,
-//       });
+  const newWords: (typeof words.$inferInsert)[] = [];
+  const newVideos = new Map<string, { url: string; size: number }>();
+  const wordVideoLinks: { word: string; videoUrl: string }[] = [];
 
-//       // Get last inserted video id
-//       const videoIdRow = await db.get(sql`SELECT last_insert_rowid() as id`);
-//       const videoId = videoIdRow.id;
+  console.log("Processing input data...");
+  for (const entry of data) {
+    if (existingWords.has(entry.item)) continue;
 
-//       await db.insert(wordVideos).values({
-//         wordId,
-//         videoId,
-//       });
-//     }
-//   }
+    newWords.push({
+      word: entry.item,
+      slug: slug(entry.item),
+      definition: "",
+      categoryId: Number(entry.category),
+      url: entry.url,
+      isAlphabet: [7, 8, 84].includes(Number(entry.category)),
+    });
 
-//   console.log("✅ Inserted all words.");
-// }
+    for (const video of entry.video_sources || []) {
+      const size = Number(video.size);
+      if (!allowedSizes.includes(size)) continue;
+      if (!video.url || existingVideos.has(video.url)) continue;
 
-// insertWordsFromFile().catch(console.error);
-// insertWordsFromFile().catch(console.error);
+      newVideos.set(video.url, { url: video.url, size });
+      wordVideoLinks.push({ word: entry.item, videoUrl: video.url });
+    }
+  }
+
+  // Batch insert words
+  console.log(`Inserting ${newWords.length} new words...`);
+  const insertedWords: { id: number; word: string }[] = [];
+  for (let i = 0; i < newWords.length; i += BATCH_SIZE) {
+    const chunk = newWords.slice(i, i + BATCH_SIZE);
+    const res = await db
+      .insert(words)
+      .values(chunk)
+      .onConflictDoNothing()
+      .returning({
+        id: words.id,
+        word: words.word,
+      });
+    insertedWords.push(...res);
+  }
+  const wordMap = new Map(insertedWords.map((w) => [w.word, w.id]));
+
+  // Batch insert videos
+  const newVideoArray = Array.from(newVideos.values());
+  console.log(`Inserting ${newVideoArray.length} new videos...`);
+  const insertedVideos: { id: number; url: string }[] = [];
+  for (let i = 0; i < newVideoArray.length; i += BATCH_SIZE) {
+    const chunk = newVideoArray.slice(i, i + BATCH_SIZE);
+    const res = await db
+      .insert(videoUrls)
+      .values(chunk)
+      .onConflictDoNothing()
+      .returning({
+        id: videoUrls.id,
+        url: videoUrls.url,
+      });
+    insertedVideos.push(...res);
+  }
+  const videoMap = new Map(insertedVideos.map((v) => [v.url, v.id]));
+
+  const wordVideosToInsert = wordVideoLinks
+    .map(({ word, videoUrl }) => {
+      const wordId = wordMap.get(word);
+      const videoId = videoMap.get(videoUrl);
+      if (wordId && videoId) return { wordId, videoId };
+      return null;
+    })
+    .filter(Boolean) as { wordId: number; videoId: number }[];
+
+  // Batch insert wordVideos
+  console.log(`Linking ${wordVideosToInsert.length} word-videos...`);
+  for (let i = 0; i < wordVideosToInsert.length; i += BATCH_SIZE) {
+    const chunk = wordVideosToInsert.slice(i, i + BATCH_SIZE);
+    await db.insert(wordVideos).values(chunk).onConflictDoNothing();
+  }
+
+  console.log("✅ Done.");
+}
+
+insertWordsFromFile().catch(console.error);

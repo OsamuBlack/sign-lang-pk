@@ -1,5 +1,5 @@
 import { db } from "@/drizzle/db";
-import { eq } from "drizzle-orm";
+import { eq, not, or } from "drizzle-orm";
 import { words, videoUrls, wordVideos } from "@/drizzle/schema";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -11,13 +11,20 @@ export default async function WordPage({
 }) {
   const paramsResolved = await params;
   const wordLabel = paramsResolved.wordId;
+
   // Find word by label (assuming label is unique, e.g., slug or word)
-  const word = (await db.select().from(words).where(eq(words.word, wordLabel)))[0];
+  const word = (
+    await db.select().from(words).where(eq(words.id, Number(wordLabel))).limit(1)
+  )[0];
   if (!word) return notFound();
 
   // Get video URL via wordVideos join
   const wordVideo = (
-    await db.select().from(wordVideos).where(eq(wordVideos.wordId, word.id))
+    await db
+      .select()
+      .from(wordVideos)
+      .where(eq(wordVideos.wordId, word.id))
+      .limit(1)
   )[0];
   let videoUrl: string | null = null;
   if (wordVideo && wordVideo.videoId != null) {
@@ -26,20 +33,24 @@ export default async function WordPage({
         .select()
         .from(videoUrls)
         .where(eq(videoUrls.id, wordVideo.videoId as number))
+        .limit(1)
     )[0];
     videoUrl = video?.url || null;
   }
 
   // Get recommended/next words in the same category
   const recommended = word.categoryId
-    ? (
-        await db
-          .select()
-          .from(words)
-          .where(eq(words.categoryId, word.categoryId))
-      )
-        .filter((w) => w.word !== wordLabel)
-        .slice(0, 6)
+    ? await db
+        .select()
+        .from(words)
+        .where(
+          or(
+            eq(words.categoryId, word.categoryId),
+            not(eq(words.word, wordLabel))
+          )
+        )
+        .orderBy(words.word)
+        .limit(6)
     : [];
 
   return (
