@@ -143,6 +143,11 @@ const data = {
       icon: ArrowLeftRight,
     },
     {
+      name: "Dictionary",
+      url: "/dictionary",
+      icon: BookOpen,
+    },
+    {
       name: "Pre-Translated Text",
       url: "/pre-translated",
       icon: Languages,
@@ -164,7 +169,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         {/* <NavMain items={data.navMain} /> */}
-        <NavIconItems title="Resources" items={data.projects} />
+        <NavIconItems title="Navigation" items={data.projects} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

@@ -3,8 +3,21 @@ import { db } from "@/drizzle/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { words } from "@/drizzle/schema";
 import { mapGlossToVideos } from "@/lib/mapGlossToVideos";
+import { clientConfig, serverConfig } from "@/config";
+import { getTokens } from "next-firebase-auth-edge";
 
 export async function POST(req: NextRequest) {
+   const tokens = await getTokens(req.cookies, {
+    apiKey: clientConfig.apiKey,
+    cookieName: serverConfig.cookieName,
+    cookieSignatureKeys: serverConfig.cookieSignatureKeys,
+    cookieSerializeOptions: serverConfig.cookieSerializeOptions,
+    serviceAccount: serverConfig.serviceAccount,
+  });
+
+  if (!tokens) {
+    return NextResponse.json({ error: "Unauthenticated" }, { status: 401 }); // 401 Unauthorized is more appropriate
+  }
   const { gloss } = await req.json();
   if (!gloss) {
     return NextResponse.json(

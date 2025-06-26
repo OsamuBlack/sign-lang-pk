@@ -4,11 +4,24 @@ import { google } from "@ai-sdk/google";
 
 import { toGlossSchema } from "@/lib/translationSchema";
 import { outliers } from "@/lib/outliers";
+import { clientConfig, serverConfig } from "@/config";
+import { getTokens } from "next-firebase-auth-edge";
+import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 50; // Allow streaming responses up to 30 seconds
 
-export async function POST(req: Request) {
-  const prompt: string = await req.json();
+export async function POST(req: NextRequest) {
+   const tokens = await getTokens(req.cookies, {
+    apiKey: clientConfig.apiKey,
+    cookieName: serverConfig.cookieName,
+    cookieSignatureKeys: serverConfig.cookieSignatureKeys,
+    cookieSerializeOptions: serverConfig.cookieSerializeOptions,
+    serviceAccount: serverConfig.serviceAccount,
+  });
+
+  if (!tokens) {
+    return NextResponse.json({ error: "Unauthenticated" }, { status: 401 }); // 401 Unauthorized is more appropriate
+  }const prompt: string = await req.json();
 
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
@@ -68,7 +81,7 @@ The result will be given in json format with key/value pairs of sentences and th
   ${outliers.join(", ")}`;
 
   const result = await generateObject({
-    model: google("gemini-2.0-flash-exp"),
+    model: google("gemini-2.0-flash-lite"),
     system,
     prompt: prompt,
     schema: toGlossSchema,

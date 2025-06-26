@@ -28,14 +28,15 @@ export function NavUser() {
   const { isMobile } = useSidebar();
   const auth = getAuth(app);
   const user = auth.currentUser;
+  const isLoading = auth.authStateReady();
 
   const router = useRouter();
 
   useEffect(() => {
-    if (!user) {
+    if (!user && !isLoading) {
       router.push("/login");
     }
-  }, [user, router]);
+  }, [user, router, isLoading]);
 
   if (!user) {
     return null;
