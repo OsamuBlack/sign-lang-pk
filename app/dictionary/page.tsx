@@ -1,13 +1,7 @@
-"use client";
-
-import { useEffect } from "react";
+// app/dictionary/page.tsx
+import { redirect } from "next/navigation";
 
 export default function DictionaryPage() {
-  useEffect(() => {
-    // Redirect to the first category in the dictionary
-    window.location.href = "/dictionary/1";
-  }, []);
-  return (
-    <h2 className="text-xl font-bold mb-4">Redirecting to the dictionary...</h2>
-  );
+  // this runs on the server and immediately issues a 307
+  redirect("/dictionary/Adjectives");
 }
