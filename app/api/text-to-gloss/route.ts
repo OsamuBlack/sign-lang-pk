@@ -49,21 +49,21 @@ Fingerspelling: The output will handle fingerspelling automatically, so you do n
 
 Examples to follow:
 
-"What is your name?" -> WHAT YOUR NAME WHAT
+"What is your name?" -> WHAT YOUR NAME
 
-"I'm not sad." -> I SAD NOT
+"I'm not sad." -> SAD I NOT
 
-"Yesterday morning, I woke up at 7 o'clock." -> WAKE-UP I YESTERDAY MORNING 7 O'CLOCK
+"Yesterday morning, I woke up at 7 o'clock." -> YESTERDAY WAKEUP I MORNING 7 OCLOCK
 
 "Tell me how you feel." -> YOU FEEL HOW TELL I
 
-"Yesterday at work a stranger (some guy I've never seen before) rushed past me" -> YESTERDAY WORK STRANGER (SOME GUY NEVER SEE BEFORE) I RUSH-PAST I
+"Yesterday at work a stranger rushed past me" -> YESTERDAY WORK STRANGER RUSH PAST I
 
 "My parents have been married for eighteen years." -> MARRIED MY PARENTS EIGHTEEN YEAR
 
 "It's easy." -> EASY
 
-"I like dogs." -> DOGS I LIKE I
+"I like dogs." -> DOGS I LIKE
 
 "She is a teacher." -> SHE TEACHER SHE
 
@@ -77,6 +77,15 @@ The result will be given in json format with key/value pairs of sentences and th
 - Text might have references to other works, which you should ignore.
 - Text might have formatting like bold or italics, which you should ignore.
 - Text might have punctuation, which you should ignore.
+
+*Rules*:
+- Follow the [time] [topic] [comment] structure.
+- Drop all "a", "an", and "the" — not used in BSL.
+- Stem verbs to their base form (e.g., "running" becomes "run").
+- Avoid tense verbs; use time adverbs instead: YESTERDAY, TOMORROW, NOW, etc.
+
+*Important*:
+**Since there is no punctuation, generate sentences in a way that they make sense without punctuation**.
 
 *Variations:*
 - The following are words that have multiple signs such as "play (video game)" and "play (sport)". You will give the gloss with the context in parentheses, like this: PLAY (VIDEO GAME). Do not use the word "play" alone without context. Only use words from the following list:

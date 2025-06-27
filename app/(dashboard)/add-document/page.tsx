@@ -68,9 +68,7 @@ export default function UploadPage() {
       setDocName("");
       setSelectedCategory(null);
       setNewDocPath(
-        `/pre-translations/books/${
-          selectedBook.id
-        }/documents/${encodeURIComponent(docName)}`
+        `/pre-translations/books/${selectedBook.id}/documents/${slug(docName)}`
       );
     } else {
       alert("Failed to add document");
@@ -181,9 +179,9 @@ export default function UploadPage() {
               Document added successfully.
               <br />
               {newDocPath && (
-                <Link href={slug(newDocPath)}>
-                  <Button className="mt-4">View Document</Button>
-                </Link>
+                <Button className="mt-4" asChild>
+                  <Link href={newDocPath}>View Document</Link>
+                </Button>
               )}
             </DialogDescription>
           </DialogHeader>

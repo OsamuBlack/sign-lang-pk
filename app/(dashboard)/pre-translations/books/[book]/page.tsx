@@ -25,7 +25,9 @@ export default async function BookDocumentsPage({ params }: Params) {
     <div className="max-w-2xl w-full mx-auto py-8 text-left">
       <h1 className="text-2xl font-bold mb-6 border-b pb-2">Documents</h1>
       <ul className="space-y-4">
-        {documents.map((doc) => (
+        {documents.sort(
+          (a, b) => a.id.localeCompare(b.id)
+        ).map((doc) => (
           <li key={doc.id} className="">
             <Link
               href={`/pre-translations/books/${book}/documents/${doc.id}`}

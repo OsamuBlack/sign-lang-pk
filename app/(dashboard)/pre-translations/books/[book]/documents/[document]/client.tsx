@@ -59,9 +59,17 @@ export function DocumentClient({
   // Handle video end: move to next sentence if possible
   const handleVideoEnd = () => {
     if (currentIdx < allSentences.length - 1) {
-      setCurrentIdx(currentIdx + 1);
+      setCurrentIdx((idx) => idx + 1);
     }
   };
+
+  // Ensure video auto-plays when currentIdx changes
+  const [shouldAutoPlay, setShouldAutoPlay] = React.useState(false);
+  React.useEffect(() => {
+    if (shouldAutoPlay) {
+      setShouldAutoPlay(false);
+    }
+  }, [currentIdx, shouldAutoPlay]);
 
   return (
     <div className="max-w-3xl mx-auto space-y-4 text-left">
@@ -76,7 +84,11 @@ export function DocumentClient({
               ...video,
               label: video.word,
             }))}
-            onEnded={handleVideoEnd}
+            onEnded={() => {
+              setShouldAutoPlay(true);
+              handleVideoEnd();
+            }}
+            // autoplay={shouldAutoPlay}
           />
         </div>
       )}

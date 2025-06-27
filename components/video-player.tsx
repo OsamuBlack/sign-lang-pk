@@ -192,16 +192,17 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
       </div>
     );
   }
-
+  
+  const currentVideoUrl = getCurrentUrl();
   return (
     <div className="max-w-4xl mx-auto">
       <div
         className="relative bg-black rounded-lg overflow-hidden flex items-center justify-center"
         style={!isFullscreen ? { height: "45vh" } : {}}
       >
-        <video
+        {currentVideoUrl &&<video
           ref={videoRef}
-          src={getCurrentUrl()}
+          src={currentVideoUrl}
           className="w-full h-full object-contain"
           onPlay={handlePlay}
           onPause={handlePause}
@@ -209,7 +210,7 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
           controls={false}
           onClick={handleVideoClick}
           style={{ background: "black" }}
-        />
+        />}
 
         <video ref={preloadRef} className="hidden" preload="auto" muted />
 
