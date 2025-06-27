@@ -64,7 +64,7 @@ export function DocumentClient({
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-8 space-y-8 text-left">
+    <div className="max-w-3xl mx-auto space-y-4 text-left">
       <h1 className="text-2xl font-bold mb-4">
         Document: {decodeURIComponent(document)}
       </h1>
@@ -80,7 +80,7 @@ export function DocumentClient({
           />
         </div>
       )}
-      <div className="prose prose-lg max-w-none bg-white rounded shadow-inner p-4 text-left">
+      <div className="prose prose-lg max-w-none bg-white rounded shadow-inner p-4 text-left max-h-[40vh] overflow-y-auto">
         {paragraphs.map((paragraph, pIdx) => (
           <div key={pIdx} className="mb-6">
             {paragraph.sentences.map((sentence, sIdx) => {
