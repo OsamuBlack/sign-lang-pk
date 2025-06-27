@@ -21,11 +21,11 @@ export default async function DocumentPage({ params }: Params) {
   }
 
   // Sentences array
-  const sentences = docData.sentences || [];
+  const paragraphs = docData.paragraphs || [];
 
   // Client-side state for current sentence
   // (useState must be used in a client component, so we split rendering)
   return (
-    <DocumentClient sentences={sentences} book={book} document={document} />
+    <DocumentClient paragraphs={paragraphs} book={book} document={document} />
   );
 }

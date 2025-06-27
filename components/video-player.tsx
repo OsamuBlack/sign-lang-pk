@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 
 interface VideoSegmentPlayerProps {
-  videos: {
-    label: string;
-    url: string;
-  }[];
-  onEnded?: () => void; 
+  videos: (
+    | { label: string; url: string }
+    | { label: string; group: string[]; urls: string[] }
+  )[];
+  onEnded?: () => void;
 }
 
 export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
@@ -20,105 +20,103 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [videoKeys, setVideoKeys] = useState<string[]>(
-    videos.map((video) => video.label)
-  );
-  const [videoDurations, setVideoDurations] = useState<Record<string, number>>(
-    {}
-  );
+  const [activeLetterIdx, setActiveLetterIdx] = useState<number>(0);
+  const [videoDurations, setVideoDurations] = useState<Record<number, number>>({});
   const shouldAutoPlayRef = useRef(false);
 
-  const currentKey = videoKeys[currentIndex];
-  const currentUrl = videos[currentIndex]?.url;
-
-  // Load video metadata
-  const loadVideoMetadata = (url: string, key: string): void => {
-    const video = document.createElement("video");
-    video.src = url;
-    video.addEventListener("loadedmetadata", () => {
-      setVideoDurations((prev) => ({
-        ...prev,
-        [key]: video.duration,
-      }));
-    });
-  };
-
+  // Load video metadata for all video segments
   useEffect(() => {
-    videoKeys.forEach((key, index) => {
-      loadVideoMetadata(videos[index]?.url, key);
+    videos.forEach((item, idx) => {
+      if ('url' in item) {
+        const video = document.createElement('video');
+        video.src = item.url;
+        video.addEventListener('loadedmetadata', () => {
+          setVideoDurations((prev) => ({ ...prev, [idx]: video.duration }));
+        });
+      } else if ('urls' in item) {
+        // Only load first url for duration (assume all letters similar duration)
+        const video = document.createElement('video');
+        video.src = item.urls[0];
+        video.addEventListener('loadedmetadata', () => {
+          setVideoDurations((prev) => ({ ...prev, [idx]: video.duration }));
+        });
+      }
     });
-  }, [videos, videoKeys]);
+  }, [videos]);
 
   useEffect(() => {
     setCurrentIndex(0);
-    setVideoKeys(videos.map((video) => video.label));
+    setActiveLetterIdx(0);
   }, [videos]);
 
-  // Handle video playback
   useEffect(() => {
-    if (!videoRef.current || !currentUrl) return;
+    setActiveLetterIdx(0);
+  }, [currentIndex]);
 
+  // Handle video playback for group
+  useEffect(() => {
+    const getCurrentUrl = () => {
+      const item = videos[currentIndex];
+      if ('url' in item) return item.url;
+      if ('urls' in item) return item.urls[activeLetterIdx] || item.urls[0];
+      return '';
+    };
+    if (!videoRef.current || !getCurrentUrl()) return;
     const video = videoRef.current;
-    const duration = videoDurations[currentKey];
-
-    if (!duration) return;
-
-    const startTime = 1.5;
-    const playDuration = duration / 2 - 1.25;
-    const endTime = startTime + playDuration;
-
     let hasEnded = false;
-
     const handleLoadedData = (): void => {
-      video.currentTime = startTime;
+      video.currentTime = 1.5;
       if (shouldAutoPlayRef.current || isPlaying) {
         video.play();
         shouldAutoPlayRef.current = false;
       }
     };
-
     const handleTimeUpdate = (): void => {
+      const duration = videoDurations[currentIndex] || video.duration;
+      const startTime = 1.5;
+      const playDuration = duration / 2 - 1.25;
+      const endTime = startTime + playDuration;
       if (!hasEnded && video.currentTime >= endTime) {
         hasEnded = true;
         video.pause();
-        if (currentIndex < videoKeys.length - 1) {
+        // If group, move to next letter in group
+        const item = videos[currentIndex];
+        if ('group' in item && activeLetterIdx < item.group.length - 1) {
+          setActiveLetterIdx((idx) => idx + 1);
           shouldAutoPlayRef.current = true;
+        } else if (currentIndex < videos.length - 1) {
           setCurrentIndex((prev) => prev + 1);
+          setActiveLetterIdx(0);
+          shouldAutoPlayRef.current = true;
         } else {
           setIsPlaying(false);
           setCurrentIndex(0);
+          setActiveLetterIdx(0);
         }
       }
     };
-
-    video.addEventListener("loadeddata", handleLoadedData);
-    video.addEventListener("timeupdate", handleTimeUpdate);
-
+    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('timeupdate', handleTimeUpdate);
     return () => {
-      video.removeEventListener("loadeddata", handleLoadedData);
-      video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
     };
-  }, [
-    currentUrl,
-    currentKey,
-    videoDurations,
-    isPlaying,
-    currentIndex,
-    videoKeys.length,
-  ]);
+  }, [currentIndex, activeLetterIdx, isPlaying, videos, videoDurations]);
 
   // Preload next video
   useEffect(() => {
-    if (!preloadRef.current || currentIndex >= videoKeys.length - 1) return;
-    // const nextKey = videoKeys[currentIndex + 1];
-    const nextUrl =
-      videos[currentIndex + 1]?.url || videos[currentIndex + 1]?.url || "";
-
+    if (!preloadRef.current || currentIndex >= videos.length - 1) return;
+    const nextItem = videos[currentIndex + 1];
+    let nextUrl = '';
+    if (nextItem) {
+      if ('url' in nextItem) nextUrl = nextItem.url;
+      else if ('urls' in nextItem) nextUrl = nextItem.urls[0];
+    }
     if (nextUrl) {
       preloadRef.current.src = nextUrl;
       preloadRef.current.load();
     }
-  }, [currentIndex, videoKeys, videos]);
+  }, [currentIndex, videos]);
 
   // Fullscreen detection
   useEffect(() => {
@@ -135,6 +133,7 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
   const handlePause = (): void => setIsPlaying(false);
   const handleKeyClick = (index: number): void => {
     setCurrentIndex(index);
+    setActiveLetterIdx(0);
     setIsPlaying(true);
   };
 
@@ -142,6 +141,27 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
     if (!videoRef.current) return;
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     isPlaying ? videoRef.current.pause() : videoRef.current.play();
+  };
+
+  // Helper to get current video URL
+  const getCurrentUrl = () => {
+    const item = videos[currentIndex];
+    if (!item) return '';
+    if ('url' in item) return item.url;
+    if ('urls' in item) return item.urls[activeLetterIdx] || item.urls[0];
+    return '';
+  };
+
+  // Helper to get current label (for fullscreen subtitle)
+  const getCurrentLabel = () => {
+    const item = videos[currentIndex];
+    if (!item) return '';
+    if ('group' in item) {
+      return item.group.map((char, i) =>
+        i === activeLetterIdx ? <b key={i} style={{textDecoration:'underline'}}>{char}</b> : char
+      );
+    }
+    return item.label;
   };
 
   if (videos.length === 0) {
@@ -164,7 +184,7 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
       >
         <video
           ref={videoRef}
-          src={currentUrl}
+          src={getCurrentUrl()}
           className="w-full h-full object-contain"
           onPlay={handlePlay}
           onPause={handlePause}
@@ -191,9 +211,9 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
         {/* Compact scrollable segments inside video frame */}
         <div className="absolute bottom-4 left-4 right-4">
           <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
-            {videoKeys.map((key, index) => (
+            {videos.map((item, index) => (
               <Button
-                key={key + index}
+                key={String('label' in item ? item.label : index) + '-' + index}
                 onClick={() => handleKeyClick(index)}
                 variant={index === currentIndex ? "default" : "secondary"}
                 size="sm"
@@ -203,7 +223,18 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
                     : "bg-gray-800 hover:bg-gray-700 text-white"
                 }`}
               >
-                {key}
+                {('group' in item && index === currentIndex) ? (
+                  item.group.map((char, i) => (
+                    <span
+                      key={char + i}
+                      style={{ fontWeight: i === activeLetterIdx ? 'bold' : 'normal', textDecoration: i === activeLetterIdx ? 'underline' : 'none' }}
+                    >
+                      {char}
+                    </span>
+                  ))
+                ) : (
+                  item.label
+                )}
               </Button>
             ))}
           </div>
@@ -212,7 +243,7 @@ export const VideoSegmentPlayer: React.FC<VideoSegmentPlayerProps> = ({
         {/* Fullscreen subtitle */}
         {isFullscreen && (
           <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-75 text-black px-4 py-2 rounded text-lg font-medium">
-            {currentKey}
+            {getCurrentLabel()}
           </div>
         )}
       </div>

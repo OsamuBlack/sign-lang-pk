@@ -17,9 +17,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import Link from "next/link";
+import { slug } from "@/lib/slug";
 
 export default function UploadPage() {
   type Book = { id: string; name: string };
+  type Category = { id: number; name: string };
   const [text, setText] = useState("");
   const [books, setBooks] = useState<Book[]>([]);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -28,12 +31,22 @@ export default function UploadPage() {
   const [loading, setLoading] = useState(false);
   const [showBookDialog, setShowBookDialog] = useState(false);
   const [newBookName, setNewBookName] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]); // New
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null); // New
+  const [newDocPath, setNewDocPath] = useState<string>(""); // New
 
   useEffect(() => {
     fetch("/api/books")
       .then((res) => res.json())
       .then((data) => setBooks(data));
   }, [showBookDialog]);
+
+  useEffect(() => {
+    // Fetch categories from API (adjust endpoint as needed)
+    fetch("/api/categories")
+      .then((res) => res.json())
+      .then((data) => setCategories(data));
+  }, []);
 
   const handleAddDoc = async () => {
     if (!text || !selectedBook || !docName) return;
@@ -45,6 +58,7 @@ export default function UploadPage() {
         prompt: text,
         book: selectedBook.id,
         document: docName,
+        category: selectedCategory,
       }),
     });
     setLoading(false);
@@ -52,6 +66,12 @@ export default function UploadPage() {
       setShowDialog(true);
       setText("");
       setDocName("");
+      setSelectedCategory(null);
+      setNewDocPath(
+        `/pre-translations/books/${
+          selectedBook.id
+        }/documents/${encodeURIComponent(docName)}`
+      );
     } else {
       alert("Failed to add document");
     }
@@ -106,6 +126,26 @@ export default function UploadPage() {
             </DropdownMenu>
           </div>
         </div>
+        {/* Category selection */}
+        <div className="space-y-2">
+          <label className="font-medium">Select Category (optional)</label>
+          <select
+            className="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+            value={selectedCategory ?? ""}
+            onChange={(e) =>
+              setSelectedCategory(
+                e.target.value ? Number(e.target.value) : null
+              )
+            }
+          >
+            <option value="">No category</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="space-y-2">
           <label className="font-medium">Document Name</label>
           <input
@@ -140,12 +180,11 @@ export default function UploadPage() {
             <DialogDescription>
               Document added successfully.
               <br />
-              <Button
-                className="mt-4"
-                onClick={() => setShowDialog(false)}
-              >
-                View Document (placeholder)
-              </Button>
+              {newDocPath && (
+                <Link href={slug(newDocPath)}>
+                  <Button className="mt-4">View Document</Button>
+                </Link>
+              )}
             </DialogDescription>
           </DialogHeader>
         </DialogContent>

@@ -2,7 +2,7 @@ import { generateObject } from "ai";
 
 import { google } from "@ai-sdk/google";
 
-import { toGlossSchema } from "@/lib/translationSchema";
+import { toDocumentSchema } from "@/lib/translationSchema";
 import { outliers } from "@/lib/outliers";
 import { clientConfig, serverConfig } from "@/config";
 import { getTokens } from "next-firebase-auth-edge";
@@ -10,6 +10,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/firebase/admin";
 import { getWordsWithVideos, getAlphabets } from "@/lib/wordsWithVideos";
 import { mapGlossToVideos } from "@/lib/mapGlossToVideos";
+import { db } from "@/drizzle/db";
+import { eq } from "drizzle-orm";
+import { words } from "@/drizzle/schema";
+import { slug } from "@/lib/slug";
 
 export const maxDuration = 50; // Allow streaming responses up to 30 seconds
 
@@ -29,10 +33,12 @@ export async function POST(req: NextRequest) {
     prompt,
     book,
     document,
+    category, // optional
   }: {
     prompt: string;
     book: string;
     document: string;
+    category?: number;
   } = await req.json();
 
   if (!prompt) {
@@ -61,7 +67,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const system = `You are an expert in British Sign Language (BSL) glossing. Your task is to convert English sentences into BSL gloss, following a specific, consistent, and concise style. Adhere strictly to these rules:
+  // If category is provided, join as comma-separated string for vocab
+  let categoryVocab = "";
+  if (category) {
+    // Get words for the category
+    const categoryWords = await db.query.words.findMany({
+      columns: {
+        word: true,
+      },
+      where: eq(words.categoryId, category),
+    });
+
+    if (categoryWords.length) {
+      categoryVocab = `The following are some of the words from a category you can also use: \n${categoryWords.join(
+        ", "
+      )}`;
+    }
+  }
+
+  const system = `You are an expert in British Sign Language (BSL) glossing. Your task is to convert English paragraphs and sentences into BSL gloss, following a specific, consistent, and concise style. Adhere strictly to these rules:
   
 Pronouns/Indexing:
 
@@ -105,20 +129,26 @@ The result will be given in json format with key/value pairs of sentences and th
 - Text might have references to other works, which you should ignore.
 - Text might have formatting like bold or italics, which you should ignore.
 - Text might have punctuation, which you should ignore.
+- Ignore any paragraph numbering.
 
 *Variations:*
 - The following are words that have multiple signs such as "play (video game)" and "play (sport)". You will give the gloss with the context in parentheses, like this: PLAY (VIDEO GAME). Do not use the word "play" alone without context. Only use words from the following list:
-  ${outliers.join(", ")}`;
+  ${outliers.join(", ")}
+
+  ${categoryVocab}
+`;
 
   const result = await generateObject({
     model: google("gemini-2.0-flash-lite"),
     system,
     prompt: prompt,
-    schema: toGlossSchema,
+    schema: toDocumentSchema,
   });
 
   // Gather all unique words from all gloss sentences
-  const allGlosses = result.object.sentences.map((s) => s.to);
+  const allGlosses = result.object.paragraphs
+    .flatMap((p) => p.sentences)
+    .map((s) => s.to);
   const wordsArr = allGlosses
     .flatMap((gloss) => gloss.split(/\s+(?!\()/).filter(Boolean))
     .map((word) => word.toLowerCase().replace(/-/g, " "));
@@ -130,27 +160,42 @@ The result will be given in json format with key/value pairs of sentences and th
     getAlphabets(),
   ]);
 
-  // Remap sentences to include feed
-  const sentencesWithFeed = result.object.sentences.map((s) => ({
-    ...s,
-    feed: mapGlossToVideos(s.to, wordsWithVideos, alphabets).map((v) => ({
-      word: v.label,
-      url: v.url,
-      // Find id for word if available
-      id:
-        wordsWithVideos.find((w) =>
-          w.word.toLowerCase() === v.label.toLowerCase()
-        )?.id || null,
+  // Remap paragraphs to include feed for each sentence, preserving paragraph structure
+  const paragraphsWithFeed = result.object.paragraphs.map((p) => ({
+    ...p,
+    sentences: p.sentences.map((s) => ({
+      ...s,
+      feed: mapGlossToVideos(s.to, wordsWithVideos, alphabets).map((v) => {
+        if ("group" in v && "urls" in v) {
+          // Finger spelling group
+          return {
+            word: v.label,
+            group: v.group,
+            urls: v.urls,
+            id: null, // No id for group
+          };
+        } else {
+          // Single word
+          return {
+            word: v.label,
+            url: v.url,
+            id:
+              wordsWithVideos.find(
+                (w) => w.word.toLowerCase() === v.label.toLowerCase()
+              )?.id || null,
+          };
+        }
+      }),
     })),
   }));
 
-  const finalObject = { ...result.object, sentences: sentencesWithFeed };
+  const finalObject = { ...result.object, paragraphs: paragraphsWithFeed };
 
   await adminDb
     .collection("books")
     .doc(book)
     .collection("documents")
-    .doc(document)
+    .doc(slug(document))
     .set(finalObject);
 
   return Response.json(finalObject);

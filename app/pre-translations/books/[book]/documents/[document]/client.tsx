@@ -5,114 +5,145 @@ import Link from "next/link";
 import React from "react";
 
 export function DocumentClient({
-  sentences,
+  paragraphs,
   book,
   document,
 }: {
-  sentences: {
-    from: string;
-    to: string;
-    feed?: {
-      word: string;
-      url: string;
+  paragraphs: {
+    sentences: {
+      from: string;
+      to: string;
+      feed?: (
+        | {
+            word: string;
+            url: string;
+          }
+        | {
+            word: string;
+            group: string[];
+            urls: string[];
+          }
+      )[];
     }[];
   }[];
   book: string;
   document: string;
 }) {
-  const [currentIdx, setCurrentIdx] = React.useState(0);
-  const [autoplay, setAutoplay] = React.useState(false);
-  const sentenceRefs = React.useRef<(HTMLButtonElement | null)[]>([]);
+  // Flatten all sentences for navigation and video
+  const allSentences = paragraphs.flatMap((p) => p.sentences);
+  const [currentIdx, setCurrentIdx] = React.useState<number>(0);
+  const [editingIdx, setEditingIdx] = React.useState<number | null>(null);
+  const [editFrom, setEditFrom] = React.useState("");
+  const [editTo, setEditTo] = React.useState("");
+  const sentenceRefs = React.useRef<(HTMLSpanElement | null)[]>([]);
 
-  // Flatten all videos for memory efficiency
-  const allVideos = sentences[currentIdx]?.feed || [];
+  // Autoscroll to current sentence
+  React.useEffect(() => {
+    if (currentIdx !== null) {
+      const ref = sentenceRefs.current[currentIdx];
+      if (ref) {
+        ref.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [currentIdx]);
 
-  // Helper: detect if a word is likely fingerspelled (single char, or not in feed, or no url)
-  function isFingerspelled(word: string, url: string | undefined) {
-    // Heuristic: single char, or url is missing, or word is all caps and not in dictionary
-    return word.length === 1 || !url || /[A-Z]{2,}/.test(word);
-  }
+  // Handle edit save (stub, implement API call as needed)
+  const handleEditSave = (idx: number) => {
+    // TODO: Call API to update sentence
+    // For now, just update locally
+    allSentences[idx].from = editFrom;
+    allSentences[idx].to = editTo;
+    setEditingIdx(null);
+  };
 
-  // When video ends, go to next sentence if autoplay
+  // Handle video end: move to next sentence if possible
   const handleVideoEnd = () => {
-    if (autoplay && currentIdx < sentences.length - 1) {
+    if (currentIdx < allSentences.length - 1) {
       setCurrentIdx(currentIdx + 1);
     }
   };
 
-  // Autoscroll to current sentence
-  React.useEffect(() => {
-    const ref = sentenceRefs.current[currentIdx];
-    if (ref) {
-      ref.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [currentIdx]);
-
   return (
-    <div className="max-w-3xl mx-auto py-8 space-y-8">
+    <div className="max-w-3xl mx-auto py-8 space-y-8 text-left">
       <h1 className="text-2xl font-bold mb-4">
         Document: {decodeURIComponent(document)}
       </h1>
-      <div className="mb-6">
-        <VideoSegmentPlayer
-          videos={allVideos.map((video) => ({
-            label: video.word,
-            url: video.url,
-          }))}
-          onEnded={handleVideoEnd}
-        />
-      </div>
-      <div className="flex flex-col gap-2 max-h-96 overflow-y-auto rounded border bg-white shadow-inner p-2">
-        {sentences.map((sentence, idx) => (
-          <button
-            key={idx + "1"}
-            ref={(el) => {
-              sentenceRefs.current[idx] = el;
-            }}
-            className={`text-left p-3 rounded transition-colors border border-transparent focus:outline-none focus:ring-2 focus:ring-primary/40 ${
-              idx === currentIdx
-                ? "bg-primary/10 border-primary/40"
-                : "hover:bg-muted"
-            }`}
-            onClick={() => setCurrentIdx(idx)}
-            tabIndex={0}
-          >
-            <span className="block font-semibold text-gray-700 mb-1">
-              {sentence.from}
-            </span>
-            <span className="block text-gray-900">{sentence.to}</span>
-            {/* Show video feed for this sentence, with fingerspelled words visually closer */}
-            {sentence.feed && sentence.feed.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {sentence.feed.map((v, i) => (
-                  <span
-                    key={v.word + i}
-                    className={`inline-block px-2 py-1 rounded text-xs font-mono ${
-                      isFingerspelled(v.word, v.url)
-                        ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
-                        : "bg-blue-100 text-blue-900 border border-blue-200"
-                    }`}
-                    style={
-                      isFingerspelled(v.word, v.url)
-                        ? { marginRight: 2, marginLeft: 2 }
-                        : {}
-                    }
+      {/* Show video for current sentence only */}
+      {allSentences[currentIdx]?.feed && allSentences[currentIdx].feed.length > 0 && (
+        <div className="mb-6">
+          <VideoSegmentPlayer
+            videos={allSentences[currentIdx].feed.map((video) => ({
+              ...video,
+              label: video.word,
+            }))}
+            onEnded={handleVideoEnd}
+          />
+        </div>
+      )}
+      <div className="prose prose-lg max-w-none bg-white rounded shadow-inner p-4 text-left">
+        {paragraphs.map((paragraph, pIdx) => (
+          <div key={pIdx} className="mb-6">
+            {paragraph.sentences.map((sentence, sIdx) => {
+              // Calculate the global sentence index for navigation/editing
+              const globalIdx =
+                paragraphs
+                  .slice(0, pIdx)
+                  .reduce((acc, p) => acc + p.sentences.length, 0) + sIdx;
+              return editingIdx === globalIdx ? (
+                <span key={sIdx} className="inline-block align-baseline ">
+                  <input
+                    className="border rounded px-2 py-1 w-48"
+                    value={editFrom}
+                    onChange={(e) => setEditFrom(e.target.value)}
+                    placeholder="English"
+                    autoFocus
+                  />
+                  <input
+                    className="border rounded px-2 py-1 mr-2 w-48"
+                    value={editTo}
+                    onChange={(e) => setEditTo(e.target.value)}
+                    placeholder="Gloss"
+                  />
+                  <button
+                    className="px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 mr-1"
+                    onClick={() => handleEditSave(globalIdx)}
                   >
-                    {v.word}
-                  </span>
-                ))}
-              </div>
-            )}
-          </button>
+                    Save
+                  </button>
+                  <button
+                    className="px-2 py-1 rounded bg-gray-300 text-gray-800 hover:bg-gray-400"
+                    onClick={() => setEditingIdx(null)}
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <span
+                  key={sIdx}
+                  ref={(el) => {
+                    sentenceRefs.current[globalIdx] = el;
+                  }}
+                  className={`inline align-baseline mr-1 py-1 rounded cursor-pointer transition-colors ${
+                    globalIdx === currentIdx
+                      ? "bg-primary/10 border border-primary/40"
+                      : "hover:bg-muted"
+                  }`}
+                  tabIndex={0}
+                  onClick={() => setCurrentIdx(globalIdx)}
+                  onDoubleClick={() => {
+                    setEditingIdx(globalIdx);
+                    setEditFrom(sentence.from);
+                    setEditTo(sentence.to);
+                  }}
+                >
+                  {sentence.from}
+                </span>
+              );
+            })}
+          </div>
         ))}
       </div>
       <div className="flex items-center gap-4 mt-6">
-        <button
-          className="px-4 py-2 rounded bg-primary text-white hover:bg-primary/90"
-          onClick={() => setAutoplay((a) => !a)}
-        >
-          {autoplay ? "Autoplay: On" : "Autoplay: Off"}
-        </button>
         <Link
           href={`/pre-translations/books/${book}`}
           className="text-blue-600 hover:underline"
