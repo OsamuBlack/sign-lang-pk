@@ -14,6 +14,7 @@ import { db } from "@/drizzle/db";
 import { eq } from "drizzle-orm";
 import { words } from "@/drizzle/schema";
 import { slug } from "@/lib/slug";
+import { fetchFromBackend } from "@/lib/fetchFromBackend";
 
 export const maxDuration = 50; // Allow streaming responses up to 30 seconds
 
@@ -203,5 +204,16 @@ The result will be given in json format with key/value pairs of sentences and th
     .doc(slug(document))
     .set(finalObject);
 
-  return Response.json(finalObject);
+  try {
+    const result = await fetchFromBackend("/api/transcribe-document", {
+      method: "POST",
+      body: JSON.stringify(finalObject),
+    });
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { error: (err as Error).message || "Backend error" },
+      { status: 500 }
+    );
+  }
 }
